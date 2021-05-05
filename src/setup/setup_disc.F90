@@ -129,10 +129,10 @@ module setup
 
  character(len=20) :: disclabel
  character(len=*), dimension(maxdiscs), parameter :: disctype = &
-    (/'binary   ', &
-      'primary  ', &
-      'secondary', &
-      'triple   '/)
+      (/'binary   ', &!    (/'binary   ', &
+      'primary  ', &!      'primary  ', &
+      'secondary', &!      'secondary', &
+      'triple   '/)!      'triple   '/)
 
  real    :: star_m(maxdiscs)
  real    :: totmass_gas
@@ -824,13 +824,17 @@ subroutine setup_central_objects()
             f=binary_f,accretion_radius1=accr1,accretion_radius2=accr1, &
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr)
 
-       call set_multiple(m2/(q2+1),m2*q2/(q2+1),semimajoraxis=binary2_a,eccentricity=binary2_e, &
+       if (subst==11) then
+          mcentral = m1
+       else
+          mcentral = m2
+       endif
+       
+       call set_multiple(mcentral/(q2+1),mcentral*q2/(q2+1),semimajoraxis=binary2_a,eccentricity=binary2_e, &
             posang_ascnode=binary2_O,arg_peri=binary2_w,incl=binary2_i, &
             f=binary2_f,accretion_radius1=accr2a,accretion_radius2=accr2b, &
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, subst=subst,ierr=ierr)
 
-
-       mcentral = m1 + m2
     end select
  end select
 
@@ -986,6 +990,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
  integer            :: i,j,itype
  integer            :: npingasdisc,npindustdisc
  integer            :: iprofilegas,iprofiledust
+ real               :: m_b1, m_b2
  real               :: Rochelobe
  real               :: polyk_dust
  real               :: xorigini(3),vorigini(3)
@@ -1022,7 +1027,25 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
           xorigini  = xyzmh_ptmass(1:3,1)
           vorigini  = vxyz_ptmass(1:3,1)
           Rochelobe = Rochelobe_estimate(m2,m1,binary_a)
+       case(1)
+          if (nsinks==2) then
+             !--circumbinary
+             xorigini  = 0.
+             vorigini  = 0.
+             Rochelobe = huge(0.)
+          elseif (nsinks==3) then
+             !--circum-inner binary
+             m_b1 = xyzmh_ptmass(4,(subst-10))
+             m_b2 = xyzmh_ptmass(4,3)
+
+             xorigini  = (xyzmh_ptmass(1:3,(subst-10))*m_b1+xyzmh_ptmass(1:3,3)*m_b2)/(m_b1+m_b2)
+             vorigini  = (vxyz_ptmass(1:3,(subst-10))*m_b1+vxyz_ptmass(1:3,3)*m_b2)/(m_b1+m_b2)
+             Rochelobe = Rochelobe_estimate(xyzmh_ptmass(4,(13-subst)),m_b1+m_b2,binary_a)
+
+          endif
+          !Ricordati un else se no poi si lamenta!
        case default
+
           !--single disc or circumbinary or circumtriple
           !  centre of mass of binary defined to be zero (see set_binary)
           xorigini  = 0.
@@ -1851,6 +1874,16 @@ subroutine setup_interactive()
        call prompt('Do you want a circumbinary disc?',iuse_disc(1))
        call prompt('Do you want a circumprimary disc?',iuse_disc(2))
        call prompt('Do you want a circumsecondary disc?',iuse_disc(3))
+    elseif (nsinks==3) then
+       !--bound binary: circum-triple
+       iuse_disc(1) = .false.
+       iuse_disc(2) = .false.
+       iuse_disc(3) = .false.
+       iuse_disc(4) = .true.
+       call prompt('Do you want a circumtriple disc?',iuse_disc(4))
+       call prompt('Do you want a circumbinary disc?',iuse_disc(1))
+       call prompt('Do you want a circumstellar disc?',iuse_disc(14-subst))
+       !print "(/,a)",'Setting circum-triple disc.'
     elseif (ibinary==1) then
        !--unbound binary (flyby): circum-primary, -secondary
        iuse_disc(1) = .false.
@@ -1858,13 +1891,6 @@ subroutine setup_interactive()
        iuse_disc(3) = .false.
        call prompt('Do you want a circumprimary disc?',iuse_disc(2))
        call prompt('Do you want a circumsecondary disc?',iuse_disc(3))
-    elseif (nsinks==3) then
-       !--bound binary: circum-triple
-       iuse_disc(1) = .false.
-       iuse_disc(2) = .false.
-       iuse_disc(3) = .false.
-       iuse_disc(4) = .true.
-       print "(/,a)",'Setting circum-triple disc.'
     endif
     if (.not.any(iuse_disc)) iuse_disc(1) = .true.
     !--number of discs
@@ -1889,12 +1915,21 @@ subroutine setup_interactive()
  if ((icentral==1 .and. nsinks>=2) .and. (ibinary==0)) then
     !--don't smooth circumbinary, by default
     ismoothgas(1) = .false.
+    ismoothgas(4) = .false.
     !--set appropriate disc radii for bound binary
-    R_in      = (/2.5*binary_a, accr1, accr2, 2.5*binary_a /)
-    R_out     = (/5.*R_in(1), 5.*accr1, 5.*accr2, 5.*R_in(1) /)
+    if (nsinks == 3) then
+       R_in      = (/2.5*binary2_a, accr1, accr2, 2.5*binary_a /)
+       R_out     = (/5.*binary2_a, 5.*accr1, 5.*accr2, 5.*R_in(4) /)
+       disc_mfac = (/0.01, 0.1, 0.01, 1./)
+    else
+       R_in      = (/2.5*binary_a, accr1, accr2, 2.5*binary_a /)
+       R_out     = (/5.*R_in(1), 5.*accr1, 5.*accr2, 5.*R_in(4) /)
+       disc_mfac = (/1., 0.1, 0.01, 1./)
+    endif
+
     R_ref     = R_in
     R_c       = R_out
-    disc_mfac = (/1., 0.1, 0.01, 1./)
+
     if (ndiscs > 1) then
        !--set H/R so temperature is globally constant
        call prompt('Do you want a globally isothermal disc (if not Farris et al. 2014)?',use_global_iso)
@@ -1910,17 +1945,30 @@ subroutine setup_interactive()
        if (.not. use_global_iso) then
           call prompt('Enter q_index',qindex(1))
           qindex=qindex(1)
-          if (iuse_disc(1)) then
-             call prompt('Enter H/R of circumbinary at R_ref',H_R(1))
+          if (iuse_disc(1) .and. nsinks==2) then
+             call prompt('Enter H/R of circumbinary disc at R_ref',H_R(1))
+             H_R(2) = (R_ref(2)/R_ref(1)*(m1+m2)/m1)**(0.5-qindex(1)) * H_R(1)
+             H_R(3) = (R_ref(3)/R_ref(1)*(m1+m2)/m2)**(0.5-qindex(1)) * H_R(1)
+          elseif (iuse_disc(4)) then
+             call prompt('Enter H/R of circumtriple disc at R_ref',H_R(1))
              H_R(2) = (R_ref(2)/R_ref(1)*(m1+m2)/m1)**(0.5-qindex(1)) * H_R(1)
              H_R(3) = (R_ref(3)/R_ref(1)*(m1+m2)/m2)**(0.5-qindex(1)) * H_R(1)
           else
              if (iuse_disc(2)) then
-                call prompt('Enter H/R of circumprimary at R_ref',H_R(2))
+                if (nsinks == 3 .and. subst == 11) then
+                   call prompt('Enter H/R of circumbinary at R_ref',H_R(2))
+                else
+                   call prompt('Enter H/R of circumprimary at R_ref',H_R(2))
+                endif
                 H_R(1) = (R_ref(1)/R_ref(2)*m1/(m1+m2))**(0.5-qindex(2)) * H_R(2)
                 H_R(3) = (R_ref(3)/R_ref(2)*m2/m1)**(0.5-qindex(2)) * H_R(2)
              else
-                call prompt('Enter H/R of circumsecondary at R_ref',H_R(3))
+                if (nsinks == 3 .and. subst == 12) then
+                   call prompt('Enter H/R of circumbinary at R_ref',H_R(3))
+                else
+                   call prompt('Enter H/R of circumsecondary at R_ref',H_R(3))
+                endif
+
                 H_R(1) = sqrt(R_ref(1)/R_ref(3)*m2/(m1+m2))**(0.5-qindex(3)) * H_R(3)
                 H_R(2) = sqrt(R_ref(2)/R_ref(3)*m2/m1)**(0.5-qindex(3)) * H_R(3)
              endif
@@ -2225,26 +2273,16 @@ subroutine write_setupfile(filename)
  end select
  !--multiple disc options
  if (n_possible_discs > 1) then
-    if (nsinks == 2) then
-       write(iunit,"(/,a)") '# options for multiple discs'
-       do i=1,maxdiscs-1
-          call write_inopt(iuse_disc(i),'use_'//trim(disctype(i))//'disc','setup circum' &
-               //trim(disctype(i))//' disc',iunit)
-       enddo
-       call write_inopt(use_global_iso,'use_global_iso',&
-            'globally isothermal or Farris et al. (2014)',iunit)
-    elseif (nsinks == 3) then
-       write(iunit,"(/,a)") '# options for multiple discs'
-       do i=4,maxdiscs
-          call write_inopt(iuse_disc(i),'use_'//trim(disctype(i))//'disc','setup circum' &
-               //trim(disctype(i))//' disc',iunit)
-       enddo
-       call write_inopt(use_global_iso,'use_global_iso',&
-            'globally isothermal or Farris et al. (2014)',iunit)
-    endif
+    write(iunit,"(/,a)") '# options for multiple discs'
+    do i=1,maxdiscs+(nsinks-3)
+       call write_inopt(iuse_disc(i),'use_'//trim(disctype(i))//'disc','setup circum' &
+            //trim(disctype(i))//' disc',iunit)
+    enddo
+    call write_inopt(use_global_iso,'use_global_iso',&
+         'globally isothermal or Farris et al. (2014)',iunit)
  endif
  !--individual disc(s)
- do i=1,maxdiscs
+ do i=1,maxdiscs+(nsinks-3)
     if (iuse_disc(i)) then
        if (n_possible_discs > 1) then
           disclabel = disctype(i)
@@ -2557,14 +2595,15 @@ subroutine read_setupfile(filename,ierr)
  !--multiple discs
  iuse_disc = .false.
  if ((icentral==1) .and. (nsinks>=2)) then
-    if (nsinks==2) then
-       if (ibinary==0) then
+    if (nsinks>=2) then
+       if (nsinks==2 .and. ibinary==0) then
+          call read_inopt(iuse_disc(1),'use_binarydisc',db,errcount=nerr)
+       elseif (nsinks==3) then
+          call read_inopt(iuse_disc(4),'use_tripledisc',db,errcount=nerr)
           call read_inopt(iuse_disc(1),'use_binarydisc',db,errcount=nerr)
        endif
        call read_inopt(iuse_disc(2),'use_primarydisc',db,errcount=nerr)
        call read_inopt(iuse_disc(3),'use_secondarydisc',db,errcount=nerr)
-    elseif (nsinks == 3) then
-       call read_inopt(iuse_disc(4),'use_tripledisc',db,errcount=nerr)
     endif
  else
     iuse_disc(1) = .true.
