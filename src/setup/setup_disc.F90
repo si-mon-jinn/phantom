@@ -1685,9 +1685,9 @@ subroutine set_tmax_dtmax()
     period = sqrt(4.*pi**2*binary_a**3/mcentral)
  elseif (icentral==1 .and. nsinks==3 .and. ibinary==0) then
     !--wide binary orbital period
-    period = sqrt(4.*pi**2*binary_a**3/mcentral)
+    period = sqrt(4.*pi**2*binary_a**3/(m1+m2))
     !--tight binary orbital period
-    period2 = sqrt(4.*pi**2*binary2_a**3/m2)
+    period2 = sqrt(4.*pi**2*binary2_a**3/mcentral)
  elseif (icentral==1 .and. nsinks==2 .and. ibinary==1) then
     !--time of flyby
     period = get_T_flyby(m1,m2,flyby_a,flyby_d)
