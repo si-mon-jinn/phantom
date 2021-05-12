@@ -143,6 +143,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  real :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
  integer :: ierr
  real :: uthermconst
+ real :: x_sink, y_sink, z_sink
 #ifdef GR
  real :: enthi,pondensi
 ! Check to see if adiabatic equation of state is being used.
@@ -220,8 +221,22 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !
 !--this is for a locally isothermal disc as in Lodato & Pringle (2007), centered on a sink particle
 !   cs = cs_0*R^(-q) -- polyk is cs^2, so this is (R^2)^(-q)
-    ponrhoi  = polyk*((xi-xyzmh_ptmass(1,isink))**2 + (yi-xyzmh_ptmass(2,isink))**2 + &
-                      (zi-xyzmh_ptmass(3,isink))**2)**(-qfacdisc)
+    if (isink < 0) then
+       x_sink = (xyzmh_ptmass(1,-isink)*xyzmh_ptmass(4,-isink)+xyzmh_ptmass(1,3)*xyzmh_ptmass(4,3))/&
+                                                                    (xyzmh_ptmass(4,-isink)+xyzmh_ptmass(4,3))
+       y_sink = (xyzmh_ptmass(2,-isink)*xyzmh_ptmass(4,-isink)+xyzmh_ptmass(2,3)*xyzmh_ptmass(4,3))/&
+                                                                    (xyzmh_ptmass(4,-isink)+xyzmh_ptmass(4,3))
+       z_sink = (xyzmh_ptmass(3,-isink)*xyzmh_ptmass(4,-isink)+xyzmh_ptmass(3,3)*xyzmh_ptmass(4,3))/&
+                                                                    (xyzmh_ptmass(4,-isink)+xyzmh_ptmass(4,3))
+    else
+       x_sink = xyzmh_ptmass(1,isink)
+       y_sink = xyzmh_ptmass(2,isink)
+       z_sink = xyzmh_ptmass(3,isink)
+    endif
+       
+
+    ponrhoi  = polyk*((xi-x_sink)**2 + (yi-y_sink)**2 + &
+                      (zi-z_sink)**2)**(-qfacdisc)
     spsoundi = sqrt(ponrhoi)
     if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
