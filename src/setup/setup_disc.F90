@@ -626,7 +626,7 @@ subroutine equation_of_state(gamma)
           elseif (nsinks == 3 .and. isink /= 3) then
              ieos = 6
              if (isink == 0) then
-                isink = 10-subst
+                isink = 10-abs(subst)
                 print "(/,a)",' setting ieos=6 for locally isothermal disc around inner binary'
              else
                 print "(/,a)",' setting ieos=6 for locally isothermal disc around sink'
@@ -833,7 +833,7 @@ subroutine setup_central_objects()
             f=binary_f,accretion_radius1=accr1,accretion_radius2=accr1, &
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr)
 
-       if (subst==11) then
+       if (abs(subst)==11) then
           mcentral = m1
        else
           mcentral = m2
@@ -1044,12 +1044,12 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
              Rochelobe = huge(0.)
           elseif (nsinks==3) then
              !--circum-inner binary
-             m_b1 = xyzmh_ptmass(4,(subst-10))
+             m_b1 = xyzmh_ptmass(4,(abs(subst)-10))
              m_b2 = xyzmh_ptmass(4,3)
 
-             xorigini  = (xyzmh_ptmass(1:3,(subst-10))*m_b1+xyzmh_ptmass(1:3,3)*m_b2)/(m_b1+m_b2)
-             vorigini  = (vxyz_ptmass(1:3,(subst-10))*m_b1+vxyz_ptmass(1:3,3)*m_b2)/(m_b1+m_b2)
-             Rochelobe = Rochelobe_estimate(xyzmh_ptmass(4,(13-subst)),m_b1+m_b2,binary_a)
+             xorigini  = (xyzmh_ptmass(1:3,(abs(subst)-10))*m_b1+xyzmh_ptmass(1:3,3)*m_b2)/(m_b1+m_b2)
+             vorigini  = (vxyz_ptmass(1:3,(abs(subst)-10))*m_b1+vxyz_ptmass(1:3,3)*m_b2)/(m_b1+m_b2)
+             Rochelobe = Rochelobe_estimate(xyzmh_ptmass(4,(13-abs(subst))),m_b1+m_b2,binary_a)
 
           endif
           !Ricordati un else se no poi si lamenta!
@@ -1891,7 +1891,7 @@ subroutine setup_interactive()
        iuse_disc(4) = .true.
        call prompt('Do you want a circumtriple disc?',iuse_disc(4))
        call prompt('Do you want a circumbinary disc?',iuse_disc(1))
-       call prompt('Do you want a circumstellar disc?',iuse_disc(14-subst))
+       call prompt('Do you want a circumstellar disc?',iuse_disc(14-abs(subst)))
        !print "(/,a)",'Setting circum-triple disc.'
     elseif (ibinary==1) then
        !--unbound binary (flyby): circum-primary, -secondary
@@ -1964,7 +1964,7 @@ subroutine setup_interactive()
              H_R(3) = (R_ref(3)/R_ref(1)*(m1+m2)/m2)**(0.5-qindex(1)) * H_R(1)
           else
              if (iuse_disc(2)) then
-                if (nsinks == 3 .and. subst == 11) then
+                if (nsinks == 3 .and. abs(subst) == 11) then
                    call prompt('Enter H/R of circumbinary at R_ref',H_R(2))
                 else
                    call prompt('Enter H/R of circumprimary at R_ref',H_R(2))
@@ -1972,7 +1972,7 @@ subroutine setup_interactive()
                 H_R(1) = (R_ref(1)/R_ref(2)*m1/(m1+m2))**(0.5-qindex(2)) * H_R(2)
                 H_R(3) = (R_ref(3)/R_ref(2)*m2/m1)**(0.5-qindex(2)) * H_R(2)
              else
-                if (nsinks == 3 .and. subst == 12) then
+                if (nsinks == 3 .and. abs(subst) == 12) then
                    call prompt('Enter H/R of circumbinary at R_ref',H_R(3))
                 else
                    call prompt('Enter H/R of circumsecondary at R_ref',H_R(3))
